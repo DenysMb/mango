@@ -179,6 +179,18 @@ void set_arrange_hidden(Monitor *m, Client *c, bool want_animation) {
 		return;
 	}
 
+	/* The picture-in-picture copy replaces the window on this view: cut it out
+	 * instead of sliding the fullscreen window away behind the copy. */
+	if (c->pip_tree) {
+		c->is_clip_to_hide = false;
+		client_update_visibility(c);
+		c->animation.running = false;
+		c->animation.tagining = false;
+		c->animation.tagouting = false;
+		c->animation.tagouted = false;
+		return;
+	}
+
 	/* Scratchpad windows slide up and out when hidden */
 	if (!(c->tags & TAG0_MASK) && c->is_in_scratchpad && c->isminimized) {
 		if (client_animations_enabled(c) && !c->animation.tagouted) {

@@ -105,6 +105,7 @@ bindr=Super,Super_L,spawn,rofi -show run
 | `togglefakefullscreen` | - | Toggle "fake" fullscreen (remains constrained). |
 | `togglemaximizescreen` | - | Maximize window (keep decoration/bar). |
 | `toggleglobal` | - | Pin window to all tags. |
+| `toggle_pip` | - | Mirror a hidden fullscreen window in the corner (see [Picture-in-Picture](/docs/window-management/picture-in-picture)). |
 | `toggle_render_border` | - | Toggle border rendering. |
 | `centerwin` | - | Center the floating window. |
 | `minimized` | - | Minimize window to scratchpad. |

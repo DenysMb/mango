@@ -549,6 +549,8 @@ FuncType parse_func_name(char *func_name, Arg *arg, char *arg_value,
 		(*arg).i = parse_circle_direction(arg_value);
 	} else if (strcmp(func_name, "toggleglobal") == 0) {
 		func = toggle_global;
+	} else if (strcmp(func_name, "toggle_pip") == 0) {
+		func = toggle_pip;
 	} else if (strcmp(func_name, "togglehdr") == 0) {
 		/* togglehdr[,on|off|toggle][,<monitor name>|all] */
 		func = toggle_hdr;

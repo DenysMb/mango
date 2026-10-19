@@ -32,6 +32,7 @@
 #include "mango/manage/monitor.h"
 #include "mango/manage/tab.h"
 #include "mango/manage/title-message-bar.h"
+#include "mango/pip/pip.h"
 #include "mango/switcher/switcher.h"
 #include <scenefx/types/wlr_scene.h>
 #include <unistd.h>
@@ -544,6 +545,7 @@ int32_t reload_config(const Arg *arg) {
 	parse_config();
 	reset_tag(old_tag_num);
 	reset_option();
+	pip_config_changed();
 	update_seat_capabilities();
 	apply_primary_selection();
 	printstatus(IPC_WATCH_ARRANGGE);

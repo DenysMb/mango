@@ -31,6 +31,7 @@
 #include "mango/manage/misc.h"
 #include "mango/manage/monitor.h"
 #include "mango/manage/tab.h"
+#include "mango/pip/pip.h"
 #include "mango/switcher/switcher.h"
 #include <scenefx/types/wlr_scene.h>
 #include <unistd.h>
@@ -913,6 +914,14 @@ bool parse_option(Config *config, char *key, char *value, int line_number) {
 		config->scratchpad_height_ratio = atof(value);
 	} else if (strcmp(key, "special_dim") == 0) {
 		config->special_dim = atof(value);
+	} else if (strcmp(key, "pip_enable") == 0) {
+		config->pip_enable = atoi(value);
+	} else if (strcmp(key, "pip_width_ratio") == 0) {
+		config->pip_width_ratio = atof(value);
+	} else if (strcmp(key, "pip_margin") == 0) {
+		config->pip_margin = atoi(value);
+	} else if (strcmp(key, "pip_corner") == 0) {
+		config->pip_corner = pip_corner_from_string(value);
 	} else if (strcmp(key, "special_gap_inner_horizontal") == 0) {
 		config->special_gappih = atoi(value);
 	} else if (strcmp(key, "special_gap_inner_vertical") == 0) {
@@ -2429,6 +2438,10 @@ void set_value_default() {
 	config.scratchpad_width_ratio = 0.8f;
 	config.scratchpad_height_ratio = 0.9f;
 	config.special_dim = 0.5f;
+	config.pip_enable = 0;
+	config.pip_width_ratio = 0.25f;
+	config.pip_margin = 24;
+	config.pip_corner = PIP_BOTTOMRIGHT;
 	config.special_gappih = 10;
 	config.special_gappiv = 10;
 	config.special_gappoh = 20;
@@ -2912,6 +2925,10 @@ void override_config(void) {
 	config.scratchpad_height_ratio =
 		CLAMP_FLOAT(config.scratchpad_height_ratio, 0.1f, 1.0f);
 	config.special_dim = CLAMP_FLOAT(config.special_dim, 0.0f, 1.0f);
+	config.pip_enable = CLAMP_INT(config.pip_enable, 0, 1);
+	config.pip_width_ratio =
+		CLAMP_FLOAT(config.pip_width_ratio, 0.05f, 0.5f);
+	config.pip_margin = CLAMP_INT(config.pip_margin, 0, 200);
 	config.special_gappih = CLAMP_INT(config.special_gappih, 0, 1000);
 	config.special_gappiv = CLAMP_INT(config.special_gappiv, 0, 1000);
 	config.special_gappoh = CLAMP_INT(config.special_gappoh, 0, 1000);

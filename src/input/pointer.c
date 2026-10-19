@@ -19,6 +19,7 @@
 #include "mango/manage/misc.h"
 #include "mango/manage/monitor.h"
 #include "mango/manage/tab.h"
+#include "mango/pip/pip.h"
 #include "mango/switcher/switcher.h"
 #include <scenefx/types/wlr_scene.h>
 #include <wlr/backend/libinput.h>
@@ -1273,6 +1274,20 @@ void pointer_process_motion(uint32_t time, struct wlr_input_device *device,
 	node_at_point(server.cursor->x, server.cursor->y, &surface, &c, NULL, &bar,
 				  &sx, &sy);
 
+	/* The PiP is painted outside the hit-test trees: hovering it must not reach
+	 * the window behind it, nor the hidden client it mirrors. */
+	if (pip_pointer_hit(server.cursor->x, server.cursor->y)) {
+		surface = NULL;
+		c = NULL;
+		bar = NULL;
+	}
+
+	/* Dragging the copy owns the pointer until the button is released. */
+	if (pip_drag_active()) {
+		pip_drag_update(server.cursor->x, server.cursor->y);
+		return;
+	}
+
 	/* While a grab owns the pointer the bar under it is not really hovered. */
 	if (server.cursor_mode != CurMove && server.cursor_mode != CurResize) {
 		MangoBarDecoration *hover = NULL;
@@ -1757,6 +1772,19 @@ bool pointer_process_button_press(struct wlr_pointer_button_event *event) {
 			return true;
 		}
 
+		/* Pressing the PiP starts a potential drag; a release without motion is
+		 * the click that brings the window back. Consumed either way so the
+		 * press never reaches the window behind the copy. */
+		Client *pip_client =
+			pip_client_at(server.cursor->x, server.cursor->y);
+		if (pip_client) {
+			if (event->button == BTN_LEFT)
+				pip_drag_begin(pip_client, server.cursor->x,
+							   server.cursor->y);
+			wlr_seat_pointer_notify_clear_focus(server.seat);
+			return true;
+		}
+
 		node_at_point(server.cursor->x, server.cursor->y, &surface, NULL, NULL,
 					  &bar, NULL, NULL);
 		if (toplevel_from_wlr_surface(surface, &c, &l) >= 0) {
@@ -1857,6 +1885,11 @@ bool pointer_process_button_press(struct wlr_pointer_button_event *event) {
 		}
 		break;
 	case WL_POINTER_BUTTON_STATE_RELEASED:
+		if (pip_drag_active()) {
+			pip_drag_end(event->button == BTN_LEFT);
+			server.cursor_mode = CurNormal;
+			return true;
+		}
 		server.group_bar_drag_pending = false;
 		server.drop_to_group = false;
 		server.group_bar_drag_client = NULL;

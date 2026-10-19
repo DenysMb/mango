@@ -498,6 +498,12 @@ typedef struct {
 	float scratchpad_width_ratio;
 	float scratchpad_height_ratio;
 	float special_dim;
+	/* Picture-in-picture: mirror the fullscreen window of a hidden tag in the
+	 * corner of the current one (see src/pip/pip.c). */
+	int32_t pip_enable;
+	int32_t pip_margin;
+	int32_t pip_corner;
+	float pip_width_ratio;
 	float rootcolor[4];
 	float bordercolor[4];
 	float dropcolor[4];

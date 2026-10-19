@@ -140,6 +140,18 @@ struct Client {
 											plus all subsurface nodes). */
 	struct wl_list ov_card_surfaces;	 /* struct ov_card_surface list */
 
+	/* Picture-in-picture: a scaled copy of the surface tree drawn in the corner
+	 * while the client's own tag is not on screen. The client keeps its real
+	 * fullscreen state and geometry. */
+	struct wlr_scene_tree *pip_tree;
+	struct wl_list pip_surfaces; /* struct pip_surface list */
+	struct wlr_box pip_rect;	 /* last drawn box, for pointer hit-testing */
+	struct wlr_scene_shadow *pip_shadow; /* WM-style frame around the copy */
+	struct wlr_scene_rect *pip_border;
+	int32_t pip_x, pip_y;	 /* dragged position (valid when pip_moved) */
+	bool pip_moved;
+	int32_t is_pip;
+
 	struct wlr_xdg_toplevel_decoration_v1 *decoration;
 	struct wl_listener foreign_activate_request;
 	struct wl_listener foreign_fullscreen_request;

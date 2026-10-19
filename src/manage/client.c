@@ -22,6 +22,7 @@
 #include "mango/manage/title-message-bar.h"
 #include "mango/manage/xwayland_primary.h"
 #include "mango/overview/overview.h"
+#include "mango/pip/pip.h"
 #include "mango/switcher/switcher.h"
 #include <fcntl.h>
 #include <scenefx/render/fx_renderer/fx_renderer.h>
@@ -2144,6 +2145,8 @@ void init_client_properties(Client *c) {
 	overview_destroy_card(c);
 	c->ov_card_tree = NULL;
 	wl_list_init(&c->ov_card_surfaces);
+	pip_destroy(c);
+	wl_list_init(&c->pip_surfaces);
 	c->force_render = 0;
 	c->activation_bypass = 0;
 	c->scroller_proportion_single = 0.0f;
@@ -3081,6 +3084,7 @@ void client_active(Client *c) {
 void client_view_on_monitor(const Arg *arg, bool want_animation, Monitor *m,
 							bool changefocus) {
 	uint32_t i, tmptag;
+	uint32_t old_tagset;
 
 	if (!m || (arg->ui != (~0 & TAGMASK) && m->isoverview)) {
 		return;
@@ -3089,6 +3093,8 @@ void client_view_on_monitor(const Arg *arg, bool want_animation, Monitor *m,
 	if (arg->ui == 0) {
 		return;
 	}
+
+	old_tagset = m->tagset[m->seltags];
 
 	if (arg->ui == UINT32_MAX) {
 		if (m->tagset[0] != m->tagset[1]) {
@@ -3135,6 +3141,9 @@ toggleseltags:
 
 	if (changefocus)
 		client_focus(client_focus_top(m), 1);
+	/* Before arrange: the PiP takes over the window that this view no longer
+	 * shows, and set_arrange_hidden cuts its tag-out animation. */
+	pip_apply_view(m, old_tagset);
 	arrange(m, want_animation, true);
 	printstatus(IPC_WATCH_ARRANGGE);
 }
@@ -3394,6 +3403,11 @@ void client_apply_fullscreen(
 		return;
 
 	c->isfullscreen = fullscreen;
+
+	/* The client left fullscreen on its own: the corner copy has nothing left to
+	 * mirror, so drop it before the (hidden) window is rearranged. */
+	if (!fullscreen && c->is_pip)
+		pip_exit(c);
 
 	client_set_fullscreen(c, fullscreen);
 	client_pending_fullscreen_state(c, fullscreen);

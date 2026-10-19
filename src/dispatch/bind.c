@@ -22,6 +22,7 @@
 #include "mango/manage/tab.h"
 #include "mango/manage/title-message-bar.h"
 #include "mango/overview/overview.h"
+#include "mango/pip/pip.h"
 #include <fcntl.h>
 #include <unistd.h>
 #include <wlr/backend.h>
@@ -1858,6 +1859,19 @@ int32_t toggle_global(const Arg *arg) {
 	return 0;
 }
 
+int32_t toggle_pip(const Arg *arg) {
+	if (!server.selected_monitor)
+		return 0;
+
+	Client *c = arg->tc ? arg->tc : server.selected_monitor->sel;
+	if (!c)
+		return 0;
+
+	pip_toggle(c);
+	printstatus(IPC_WATCH_ARRANGGE);
+	return 0;
+}
+
 int32_t toggle_gaps(const Arg *arg) {
 	if (!server.selected_monitor)
 		return 0;
@@ -2319,6 +2333,8 @@ static void set_overview(const Arg *arg, bool enter) {
 	uint32_t current_tags = 0;
 
 	server.selected_monitor->isoverview = enter;
+	/* The cards already mirror every window; the PiP copies would duplicate. */
+	pip_set_overview(server.selected_monitor, enter);
 
 	if (!enter) {
 		server.selected_monitor->ov_tab_layout = 0;

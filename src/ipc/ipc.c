@@ -9,6 +9,7 @@
 #include "mango/manage/client.h"
 #include "mango/manage/layer.h"
 #include "mango/manage/monitor.h"
+#include "mango/pip/pip.h"
 #include <errno.h>
 #include <fcntl.h>
 #include <libinput.h>
@@ -605,6 +606,7 @@ cJSON *build_client_json(Client *c) {
 	cJSON_AddBoolToObject(obj, "is_urgent", c->isurgent);
 	cJSON_AddBoolToObject(obj, "is_scratchpad", c->is_in_scratchpad);
 	cJSON_AddBoolToObject(obj, "is_namedscratchpad", c->isnamedscratchpad);
+	cJSON_AddBoolToObject(obj, "is_pip", c->is_pip);
 	cJSON_AddNumberToObject(obj, "x", c->geom.x);
 	cJSON_AddNumberToObject(obj, "y", c->geom.y);
 	cJSON_AddNumberToObject(obj, "width", c->geom.width);
@@ -876,6 +878,12 @@ void handle_command(int client_fd, const char *cmd_raw) {
 		resp = build_monitor_tags_response(m);
 	} else if (strcmp(cmd, "get layouts") == 0) {
 		resp = build_layouts_response();
+	} else if (strcmp(cmd, "get pip") == 0) {
+		/* Also the feature probe: a stock binary answers "unknown command", so
+		 * the shell can keep pip_enable out of the config it generates. */
+		resp = cJSON_CreateObject();
+		cJSON_AddBoolToObject(resp, "enabled", pip_enabled_value());
+		cJSON_AddNumberToObject(resp, "active", pip_active_count());
 	} else if (strncmp(cmd, "dispatch ", 9) == 0) {
 		char *dispatch_copy = strdup(cmd_raw + 9);
 		char *out = dispatch_copy, *ptr = dispatch_copy;

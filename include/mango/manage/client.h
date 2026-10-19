@@ -106,6 +106,7 @@ struct Client {
 	struct wl_listener dissociate;
 	struct wl_listener configure;
 	struct wl_listener set_hints;
+	struct wl_listener set_opacity;
 	struct wl_listener set_geometry;
 	struct wl_listener commmitx11;
 	struct wlr_scene_buffer *xwl_root_buffer;
@@ -205,6 +206,9 @@ struct Client {
 	int32_t isunglobal;
 	float focused_opacity;
 	float unfocused_opacity;
+	/* _NET_WM_WINDOW_OPACITY requested by an X11 client. Multiplied into the
+	 * focus opacity so an override-redirect container can hide itself. */
+	float app_opacity;
 	char oldmonname[128];
 	int32_t no_blur;
 	float blur_opacity;
@@ -528,6 +532,8 @@ void handle_xwayland_surface_dissociate(struct wl_listener *listener,
 										void *data);
 void handle_xwayland_surface_set_hints(struct wl_listener *listener,
 									   void *data);
+void handle_xwayland_surface_set_opacity(struct wl_listener *listener,
+										 void *data);
 void handle_xwayland_ready(struct wl_listener *listener, void *data);
 void handle_xwayland_surface_set_geometry(struct wl_listener *listener,
 										  void *data);

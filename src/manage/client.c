@@ -2040,6 +2040,60 @@ void handle_new_xdg_toplevel(struct wl_listener *listener, void *data) {
 	LISTEN(&toplevel->events.set_title, &c->set_title, handle_client_set_title);
 }
 
+#ifdef XWAYLAND
+/* wlroots only learns _NET_WM_WINDOW_OPACITY from PropertyNotify, and the
+ * xembedsniproxy container sets it before that event mask is in place, so the
+ * value never reaches wlr_xwayland_surface.opacity. Read it directly. A
+ * dedicated connection keeps the read from stealing events off the xwm one.
+ * Returns -1 when the property cannot be read, the caller falls back. */
+static xcb_connection_t *opacity_conn = NULL;
+static xcb_atom_t opacity_atom = XCB_ATOM_NONE;
+
+static double read_wm_window_opacity(xcb_window_t window) {
+	if (!server.xwayland || !server.xwayland->display_name) {
+		return -1.0;
+	}
+	if (opacity_conn && xcb_connection_has_error(opacity_conn)) {
+		xcb_disconnect(opacity_conn);
+		opacity_conn = NULL;
+	}
+	if (!opacity_conn) {
+		opacity_conn = xcb_connect(server.xwayland->display_name, NULL);
+		if (xcb_connection_has_error(opacity_conn)) {
+			xcb_disconnect(opacity_conn);
+			opacity_conn = NULL;
+			return -1.0;
+		}
+		opacity_atom = XCB_ATOM_NONE;
+	}
+	if (opacity_atom == XCB_ATOM_NONE) {
+		xcb_intern_atom_cookie_t atom_cookie =
+			xcb_intern_atom(opacity_conn, 0, strlen("_NET_WM_WINDOW_OPACITY"),
+							"_NET_WM_WINDOW_OPACITY");
+		xcb_intern_atom_reply_t *atom_reply =
+			xcb_intern_atom_reply(opacity_conn, atom_cookie, NULL);
+		if (!atom_reply) {
+			return -1.0;
+		}
+		opacity_atom = atom_reply->atom;
+		free(atom_reply);
+	}
+
+	xcb_get_property_cookie_t cookie = xcb_get_property(
+		opacity_conn, 0, window, opacity_atom, XCB_ATOM_CARDINAL, 0, 1);
+	xcb_get_property_reply_t *reply =
+		xcb_get_property_reply(opacity_conn, cookie, NULL);
+	if (!reply || reply->type != XCB_ATOM_CARDINAL || reply->format != 32 ||
+		xcb_get_property_value_length(reply) < (int)sizeof(uint32_t)) {
+		free(reply);
+		return 1.0;
+	}
+	uint32_t value = *(uint32_t *)xcb_get_property_value(reply);
+	free(reply);
+	return (double)value / (double)UINT32_MAX;
+}
+#endif
+
 void init_client_properties(Client *c) {
 #ifdef XWAYLAND
 	c->xwl_req_valid = false;
@@ -2110,6 +2164,14 @@ void init_client_properties(Client *c) {
 	c->fake_no_border = false;
 	c->focused_opacity = config.focused_opacity;
 	c->unfocused_opacity = config.unfocused_opacity;
+	c->app_opacity = 1.0f;
+#ifdef XWAYLAND
+	if (c->type == X11) {
+		double opacity = read_wm_window_opacity(c->surface.xwayland->window_id);
+		c->app_opacity =
+			opacity >= 0.0 ? (float)opacity : c->surface.xwayland->opacity;
+	}
+#endif
 	c->no_focus = 0;
 	c->no_fade_in = 0;
 	c->no_fade_out = 0;
@@ -2688,6 +2750,7 @@ void handle_client_destroy(struct wl_listener *listener, void *data) {
 		wl_list_remove(&c->configure.link);
 		wl_list_remove(&c->dissociate.link);
 		wl_list_remove(&c->set_hints.link);
+		wl_list_remove(&c->set_opacity.link);
 	} else
 #endif
 	{
@@ -2853,7 +2916,7 @@ void scene_buffer_apply_opacity(struct wlr_scene_buffer *buffer, int32_t sx,
 }
 
 void client_set_opacity(Client *c, double opacity) {
-	opacity = CLAMP_FLOAT(opacity, 0.0f, 1.0f);
+	opacity = CLAMP_FLOAT(opacity, 0.0f, 1.0f) * c->app_opacity;
 	wlr_scene_node_for_each_buffer(&c->scene_surface->node,
 								   scene_buffer_apply_opacity, &opacity);
 }
@@ -4884,6 +4947,8 @@ void handle_new_xwayland_surface(struct wl_listener *listener, void *data) {
 		   handle_client_request_fullscreen);
 	LISTEN(&xsurface->events.set_hints, &c->set_hints,
 		   handle_xwayland_surface_set_hints);
+	LISTEN(&xsurface->events.set_opacity, &c->set_opacity,
+		   handle_xwayland_surface_set_opacity);
 	LISTEN(&xsurface->events.set_title, &c->set_title, handle_client_set_title);
 	LISTEN(&xsurface->events.request_maximize, &c->maximize,
 		   handle_client_request_maximize);
@@ -4944,6 +5009,17 @@ void handle_xwayland_surface_set_hints(struct wl_listener *listener,
 
 	if (c->isurgent && surface && surface->mapped)
 		client_update_border_color(c);
+}
+
+void handle_xwayland_surface_set_opacity(struct wl_listener *listener,
+										 void *data) {
+	Client *c = wl_container_of(listener, c, set_opacity);
+	struct wlr_surface *surface = client_surface(c);
+
+	c->app_opacity = c->surface.xwayland->opacity;
+	if (c->scene_surface && surface && surface->mapped) {
+		client_set_opacity(c, c->opacity_animation.current_opacity);
+	}
 }
 
 void handle_xwayland_ready(struct wl_listener *listener, void *data) {
